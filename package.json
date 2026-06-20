@@ -1,6 +1,6 @@
 {
   "name": "@whiteintel/mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Model Context Protocol server for WhiteIntel — corporate & offshore ownership intelligence. Look up UK companies, search entities (companies + people), and trace ownership chains to the ultimate beneficial owner. Free & open, no auth.",
   "type": "module",
   "bin": {

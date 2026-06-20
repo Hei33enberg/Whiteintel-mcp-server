@@ -115,6 +115,19 @@ const TOOLS = [
     handler: (a) => apiGet(`/api/public/entity/${encodeURIComponent(String(a.id).trim())}`),
   },
   {
+    name: "get_dossier",
+    description:
+      "Build a structured, fully-cited intelligence dossier for one entity by id: identity with cross-source linked records (the same real-world entity resolved across ICIJ leaks, GLEIF, registries), ownership/control (direct owners, holdings, and the UBO chain), risk signals, and provenance on every layer. Every claim traces to a source URL. Use this for 'tell me everything about X'. Get the id from search_entities.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", maxLength: 80, description: "Entity id (from search_entities)." },
+      },
+      required: ["id"],
+    },
+    handler: (a) => apiGet(`/api/public/dossier/${encodeURIComponent(String(a.id).trim())}`),
+  },
+  {
     name: "trace_ownership_path",
     description:
       "Walk the ownership graph upward from a root entity, up to max_depth hops, and return the ordered chain(s) connecting it to the ultimate beneficial owner. Use this to answer 'who ultimately controls X?'. Get the root id from search_entities.",
@@ -133,7 +146,7 @@ const TOOLS = [
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 const server = new Server(
-  { name: "whiteintel-mcp-server", version: "0.1.0" },
+  { name: "whiteintel-mcp-server", version: "0.2.0" },
   { capabilities: { tools: {} } },
 );
 
