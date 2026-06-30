@@ -141,6 +141,51 @@ const TOOLS = [
     },
     handler: (a) => apiGet(`/api/public/ownership-path${qs({ root: a.root, max_depth: a.max_depth ?? 6 })}`),
   },
+  {
+    name: "lookup_by_identifier",
+    description:
+      "Resolve an entity by a strong external identifier instead of a name — a LEI, OFAC SDN uid, EU/UN/UK sanctions id, Singapore UEN, Polish NIP, SEC CIK, Polish KRS, or UK Companies House number. Returns the single resolved entity (id, type, jurisdiction, identifier, risk) so you can pivot into get_entity / get_dossier / get_sanctions. Use this when you already hold a registry id and want the corpus node behind it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scheme: {
+          type: "string",
+          enum: ["lei", "ofac", "eu", "un", "uk", "uen", "nip", "sec", "krs", "gb-coh"],
+          description: "Identifier scheme: lei | ofac | eu | un | uk | uen | nip | sec | krs | gb-coh.",
+        },
+        value: { type: "string", maxLength: 100, description: "The identifier value (e.g. an LEI, an OFAC SDN uid, a Companies House number)." },
+      },
+      required: ["scheme", "value"],
+    },
+    handler: (a) => apiGet(`/api/public/by-identifier${qs({ scheme: a.scheme, value: a.value })}`),
+  },
+  {
+    name: "get_sanctions",
+    description:
+      "Return an entity's sanctions exposure: every 'sanctioned' risk signal (OFAC SDN, EU, UN, UK lists) for the entity AND its resolved cluster siblings — each with the list, regime, source list and a source URL. Tells you whether an entity, or anything cross-source-resolved to the same real-world party, is on a public sanctions list. Get the id from search_entities or lookup_by_identifier.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", maxLength: 80, description: "Entity id." },
+      },
+      required: ["id"],
+    },
+    handler: (a) => apiGet(`/api/public/sanctions/${encodeURIComponent(String(a.id).trim())}`),
+  },
+  {
+    name: "check_offshore_exposure",
+    description:
+      "Walk the ownership chain upward from an entity and flag, hop by hop, whether each node is sanctioned and/or sits in a secrecy jurisdiction (classic tax-haven / offshore-secrecy country). Returns the chain, a boolean `exposed`, and the flagged hops — the offshore-layering lead behind 'does this entity sit on a sanctioned or secrecy-jurisdiction ownership chain?'. Get the id from search_entities or lookup_by_identifier.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", maxLength: 80, description: "Entity id to assess." },
+        max_depth: { type: "number", minimum: 1, maximum: 6, description: "Max ownership hops to walk (default 6)." },
+      },
+      required: ["id"],
+    },
+    handler: (a) => apiGet(`/api/public/offshore-exposure/${encodeURIComponent(String(a.id).trim())}${qs({ max_depth: a.max_depth ?? 6 })}`),
+  },
 ];
 
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
