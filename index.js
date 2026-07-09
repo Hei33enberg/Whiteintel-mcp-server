@@ -61,9 +61,18 @@ async function apiGet(path) {
     body = text;
   }
   if (!res.ok) {
-    // Internal detail to stderr only; user-facing message stays generic.
     console.error(`whiteintel-mcp-server: upstream ${res.status} for ${path}`);
-    throw new Error(`The WhiteIntel API returned an error (${res.status}). Please retry shortly.`);
+    const detail = body && typeof body === "object" ? (body.error || body.detail || body.message) : null;
+    // Only 5xx / 429 are worth retrying — surface the actionable reason for the rest
+    // (400 bad request, 404 not found, 429 quota) so the agent doesn't blindly retry.
+    if (res.status >= 500 || res.status === 429) {
+      const ra = res.headers.get("retry-after");
+      throw new Error(
+        `The WhiteIntel API is temporarily unavailable (${res.status}${detail ? `: ${detail}` : ""}).` +
+          (ra ? ` Retry after ${ra}s.` : " Please retry shortly."),
+      );
+    }
+    throw new Error(`The WhiteIntel API rejected the request (${res.status}${detail ? `: ${detail}` : ""}).`);
   }
   return body;
 }
@@ -105,10 +114,13 @@ const TOOLS = [
       properties: {
         q: { type: "string", maxLength: 200, description: "Entity name or fragment." },
         limit: { type: "number", minimum: 1, maximum: 50, description: "Max results (default 20)." },
+        type: { type: "string", enum: ["company", "person", "asset"], description: "Optional: filter by entity kind." },
+        juris: { type: "string", maxLength: 8, description: "Optional: filter by jurisdiction code (e.g. gb, ky, us)." },
+        risk: { type: "string", enum: ["HIGH", "MED", "LOW"], description: "Optional: filter by risk level." },
       },
       required: ["q"],
     },
-    handler: (a) => apiGet(`/api/public/entity/search${qs({ q: a.q, limit: a.limit ?? 20 })}`),
+    handler: (a) => apiGet(`/api/public/entity/search${qs({ q: a.q, limit: a.limit ?? 20, type: a.type, juris: a.juris, risk: a.risk })}`),
   },
   {
     name: "get_entity",
