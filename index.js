@@ -171,8 +171,8 @@ const TOOLS = [
       properties: {
         scheme: {
           type: "string",
-          enum: ["lei", "ofac", "eu", "un", "uk", "uen", "nip", "sec", "krs", "gb-coh"],
-          description: "Identifier scheme: lei | ofac | eu | un | uk | uen | nip | sec | krs | gb-coh.",
+          enum: ["lei", "ofac", "eu", "un", "uk", "uen", "nip", "sec", "krs", "gb-coh", "siren"],
+          description: "Identifier scheme: lei | ofac | eu | un | uk | uen | nip | sec | krs | gb-coh | siren (French SIREN, 9 digits).",
         },
         value: { type: "string", maxLength: 100, description: "The identifier value (e.g. an LEI, an OFAC SDN uid, a Companies House number)." },
       },
