@@ -207,12 +207,47 @@ const TOOLS = [
     },
     handler: (a) => apiGet(`/api/public/offshore-exposure/${encodeURIComponent(String(a.id).trim())}${qs({ max_depth: a.max_depth ?? 6 })}`),
   },
+  {
+    name: "get_company_details",
+    description:
+      "Companies House register detail for a UK company by entity id: registered address, status, company type, incorporation date, SIC industry codes, and the filing/compliance layer — accounts type, last-filed and next-due dates (flagged when OVERDUE), confirmation-statement status, outstanding mortgage charges, and former ('also known as') names. Use this for 'where is X registered / what does it file / is it overdue / what was it called before'. Get the id from search_entities or lookup_by_identifier.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", maxLength: 80, description: "Entity id (a UK company)." } },
+      required: ["id"],
+    },
+    handler: (a) => apiGet(`/api/public/company-details/${encodeURIComponent(String(a.id).trim())}`),
+  },
+  {
+    name: "get_financials",
+    description:
+      "Filed financial figures for a UK company by entity id, year-over-year, from Companies House iXBRL accounts: turnover, profit/(loss), net assets, cash, shareholder funds, fixed/current assets, and employee count per reporting period. Use this for 'what are X's revenue / profit / net assets / how many employees'. Coverage is uneven — balance-sheet items and employees are broad, but turnover/profit are sparse because micro-entities file no profit-and-loss account. Get the id from search_entities.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", maxLength: 80, description: "Entity id (a UK company)." } },
+      required: ["id"],
+    },
+    handler: (a) => apiGet(`/api/public/financials/${encodeURIComponent(String(a.id).trim())}`),
+  },
+  {
+    name: "get_pulse",
+    description:
+      "The WhiteIntel Pulse activity feed: recent ownership / control changes across the corpus, newest first, each with a source registry. Use this to answer 'what changed recently / any recent ownership movements' or to monitor the corpus. Optional kind filter (ownership | officer | filing | sanction | asset | status).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["ownership", "officer", "filing", "sanction", "asset", "status"], description: "Optional: filter by event kind." },
+        limit: { type: "number", minimum: 1, maximum: 100, description: "Max events (default 40)." },
+      },
+    },
+    handler: (a) => apiGet(`/api/public/pulse${qs({ kind: a.kind, limit: a.limit ?? 40 })}`),
+  },
 ];
 
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 const server = new Server(
-  { name: "whiteintel-mcp-server", version: "0.3.1" },
+  { name: "whiteintel-mcp-server", version: "0.4.0" },
   { capabilities: { tools: {} } },
 );
 
