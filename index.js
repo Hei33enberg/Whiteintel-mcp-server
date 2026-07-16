@@ -77,6 +77,33 @@ async function apiGet(path) {
   return body;
 }
 
+async function apiPost(path, payload) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  const headers = { accept: "application/json", "content-type": "application/json", "user-agent": "whiteintel-mcp-server" };
+  if (API_KEY) headers.authorization = `Bearer ${API_KEY}`;
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: JSON.stringify(payload), signal: ctrl.signal });
+  } catch (e) {
+    throw new Error(e?.name === "AbortError" ? `request timed out after ${REQUEST_TIMEOUT_MS}ms` : `network error: ${e?.message ?? e}`);
+  } finally {
+    clearTimeout(timer);
+  }
+  const text = await res.text();
+  let body;
+  try { body = JSON.parse(text); } catch { body = text; }
+  if (!res.ok) {
+    const detail = body && typeof body === "object" ? (body.error || body.detail || body.message) : null;
+    if (res.status >= 500 || res.status === 429) {
+      const ra = res.headers.get("retry-after");
+      throw new Error(`The WhiteIntel API is temporarily unavailable (${res.status}${detail ? `: ${detail}` : ""}).` + (ra ? ` Retry after ${ra}s.` : " Please retry shortly."));
+    }
+    throw new Error(`The WhiteIntel API rejected the request (${res.status}${detail ? `: ${detail}` : ""}).`);
+  }
+  return body;
+}
+
 const TOOLS = [
   {
     name: "lookup_company",
@@ -242,12 +269,29 @@ const TOOLS = [
     },
     handler: (a) => apiGet(`/api/public/pulse${qs({ kind: a.kind, limit: a.limit ?? 40 })}`),
   },
+  {
+    name: "resolve",
+    description:
+      "Batch-resolve a list of company names or strong identifiers (scheme:value — lei, siren, gb-coh, uen, nip, sec, ofac, eu, un, uk, krs) to canonical WhiteIntel entity ids in ONE call. Each result carries a confidence: 'exact' (identifier match) or 'name' (top name hit). Use this to enrich a whole list — suppliers, counterparties, a portfolio — without one lookup per row. Then feed the ids into get_dossier / trace_ownership_path / get_sanctions. Up to 25 items anonymously, 100 with WHITEINTEL_API_KEY.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        queries: {
+          type: "array",
+          items: { type: "string" },
+          description: "Names or scheme:value identifiers, e.g. [\"Tesco\", \"siren:552081317\", \"lei:213800...\", \"gb-coh:00445790\"].",
+        },
+      },
+      required: ["queries"],
+    },
+    handler: (a) => apiPost(`/api/public/resolve`, { queries: Array.isArray(a.queries) ? a.queries : [] }),
+  },
 ];
 
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 const server = new Server(
-  { name: "whiteintel-mcp-server", version: "0.4.0" },
+  { name: "whiteintel-mcp-server", version: "0.5.0" },
   { capabilities: { tools: {} } },
 );
 
