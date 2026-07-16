@@ -265,9 +265,10 @@ const TOOLS = [
       properties: {
         kind: { type: "string", enum: ["ownership", "officer", "filing", "sanction", "asset", "status"], description: "Optional: filter by event kind." },
         limit: { type: "number", minimum: 1, maximum: 100, description: "Max events (default 40)." },
+        since: { type: "string", description: "Optional sync cursor (ISO-8601): pass the next_since from your last response to get only events ingested after it — poll this to monitor what's new." },
       },
     },
-    handler: (a) => apiGet(`/api/public/pulse${qs({ kind: a.kind, limit: a.limit ?? 40 })}`),
+    handler: (a) => apiGet(`/api/public/pulse${qs({ kind: a.kind, limit: a.limit ?? 40, since: a.since })}`),
   },
   {
     name: "resolve",
@@ -291,7 +292,7 @@ const TOOLS = [
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 const server = new Server(
-  { name: "whiteintel-mcp-server", version: "0.5.0" },
+  { name: "whiteintel-mcp-server", version: "0.5.1" },
   { capabilities: { tools: {} } },
 );
 

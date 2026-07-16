@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 — 2026-07-16
+
+- `get_pulse` gains an optional `since` (ISO-8601) sync cursor: poll it with the
+  `next_since` from your last response to stream only newly-ingested events — the
+  changes-feed you monitor the corpus against.
+
 ## 0.5.0 — 2026-07-16
 
 - New `resolve` tool: batch-resolve a list of company names or `scheme:value`
