@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 — 2026-07-16
+
+- New `resolve` tool: batch-resolve a list of company names or `scheme:value`
+  identifiers to canonical entity ids + confidence in one call — enrich a whole
+  supplier / counterparty / portfolio list without one lookup per row.
+- `lookup_by_identifier` now accepts the `siren` scheme (French SIREN).
+- Rolls up the previously-unpublished 0.4.0 tools — `get_company_details`
+  (registered address / status / SIC / filing & compliance), `get_financials`
+  (turnover / profit / net assets / cash / employees, year-over-year) and
+  `get_pulse` (the live corpus activity feed). 9 → 13 tools.
+
 ## 0.3.2 — 2026-07-09
 
 - `search_entities` now accepts optional `type` (company/person/asset), `juris`
