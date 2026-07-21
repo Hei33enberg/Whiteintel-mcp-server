@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "whiteintel": {
+      "command": "npx",
+      "args": ["-y", "@whiteintel/mcp-server"],
+      "env": {
+        "WHITEINTEL_API_KEY": "wi_YOUR_KEY_OPTIONAL"
+      }
+    }
+  }
+}

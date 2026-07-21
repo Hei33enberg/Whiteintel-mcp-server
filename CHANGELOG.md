@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-07-21
+
+- **Agents can pay.** Three new tools drive a one-off dossier purchase end-to-end:
+  `get_pricing` (the honest static price list + the machine buy-flow),
+  `buy_dossier` (guest Stripe Checkout — Standard €39 / Premium €99, packs of
+  5/25 — returns a `checkout_url` a human or payment-capable agent completes)
+  and `claim_dossier` (redeems the paid `session_id` for a 90-day entity-scoped
+  access token; idempotent, `402 not_paid` until payment lands).
+- `get_dossier` accepts an optional `token`: a claimed Standard token unlocks
+  the full multi-hop UBO chain + year-over-year financial history for that
+  entity; a Premium token additionally unlocks itemised assets (vessels,
+  aircraft, securities, real estate). 13 → 16 tools.
+
 ## 0.5.1 — 2026-07-16
 
 - `get_pulse` gains an optional `since` (ISO-8601) sync cursor: poll it with the

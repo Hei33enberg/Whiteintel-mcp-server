@@ -13,7 +13,12 @@
  *
  * Freemium. Without a key, calls hit the anonymous free tier. Set WHITEINTEL_API_KEY
  * (a wi_… key from whiteintel.dev → Settings → API keys) to authenticate as your
- * plan and lift free-tier limits — it's forwarded as a Bearer token. Stdio transport.
+ * plan and lift free-tier limits — it's forwarded as a Bearer token.
+ *
+ * Agents can pay: get_pricing → buy_dossier (guest Stripe Checkout, no account) →
+ * claim_dossier (mints a 90-day entity-scoped token) → get_dossier with `token`
+ * unlocks the paid depth (full UBO chain + financial history; premium adds
+ * itemised assets). Stdio transport.
  * Add to an MCP client (Claude Desktop, Cursor) with:
  *   { "command": "npx", "args": ["-y", "@whiteintel/mcp-server"],
  *     "env": { "WHITEINTEL_API_KEY": "wi_…" } }   // env optional (free tier without it)
@@ -104,6 +109,93 @@ async function apiPost(path, payload) {
   return body;
 }
 
+// ── One-off dossier checkout (the agent-payment path) ─────────────────────────
+// buy_dossier / claim_dossier talk straight to the public `dossier-checkout`
+// Supabase Edge Function — guest checkout, no WhiteIntel account needed (Stripe
+// collects an email for delivery). The apikey below is the same PUBLIC anon
+// (publishable) key the whiteintel.dev web app ships to every browser; it grants
+// nothing by itself — payment authenticity is Stripe-side, inside the function.
+const CHECKOUT_URL = "https://azmnkvjnelbdjnmukxll.supabase.co/functions/v1/dossier-checkout";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bW5rdmpuZWxiZGpubXVreGxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzQzNjcsImV4cCI6MjA5NzQ1MDM2N30.36Qo7y8BKY2WUk829eZUE9kS_1daaG8p-pDo8Q4kPtk";
+
+async function checkoutPost(payload) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  const headers = { accept: "application/json", "content-type": "application/json", apikey: SUPABASE_ANON_KEY, "user-agent": "whiteintel-mcp-server" };
+  let res;
+  try {
+    res = await fetch(CHECKOUT_URL, { method: "POST", headers, body: JSON.stringify(payload), signal: ctrl.signal });
+  } catch (e) {
+    throw new Error(e?.name === "AbortError" ? `request timed out after ${REQUEST_TIMEOUT_MS}ms` : `network error: ${e?.message ?? e}`);
+  } finally {
+    clearTimeout(timer);
+  }
+  const text = await res.text();
+  let body;
+  try { body = JSON.parse(text); } catch { body = text; }
+  if (!res.ok) {
+    const detail = body && typeof body === "object" ? (body.error || body.detail || body.message) : null;
+    if (res.status >= 500 || res.status === 429) {
+      const ra = res.headers.get("retry-after");
+      throw new Error(`The WhiteIntel checkout service is temporarily unavailable (${res.status}${detail ? `: ${detail}` : ""}).` + (ra ? ` Retry after ${ra}s.` : " Please retry shortly."));
+    }
+    // 402 not_paid is the expected pre-payment claim answer — surface it verbatim
+    // so the agent knows to wait for the human to finish Checkout, not to retry blindly.
+    throw new Error(`The WhiteIntel checkout service rejected the request (${res.status}${detail ? `: ${detail}` : ""}).`);
+  }
+  return body;
+}
+
+// Static, honest price list — mirrors whiteintel.dev/pricing (the single source of
+// truth for advertised figures). No network call; safe to invoke any time.
+const PRICING = {
+  currency: "EUR",
+  pricing_url: "https://whiteintel.dev/pricing",
+  one_off_dossiers: {
+    standard: {
+      price: "€39",
+      unlocks:
+        "Full multi-hop UBO chain + year-over-year financial history for ONE entity (the free tier shows the first ownership hop and the latest financial period only).",
+    },
+    premium: {
+      price: "€99",
+      unlocks:
+        "Everything in Standard, plus the itemised asset layer held via the ownership graph — vessels, aircraft, securities, real estate.",
+    },
+    packs: {
+      "standard × 5": "€159 total",
+      "standard × 25": "€599 total",
+      "premium × 5": "€399 total",
+      note: "A pack grants report credits redeemable on any entity; there is no premium 25-pack.",
+    },
+    token_validity: "Each claimed access token is scoped to one entity and stays valid for 90 days.",
+  },
+  subscriptions: {
+    investigator: {
+      price: "€149/seat·mo",
+      includes:
+        "Unlimited full-depth ownership graph, 10 Premium dossiers/mo included, risk scores + watchlists, metered API/MCP credit allowance.",
+    },
+    business: {
+      price: "€1,900/mo",
+      includes:
+        "Everything in Investigator with 3 seats, 75 Premium dossiers/mo included, monitoring + webhooks, larger API/MCP credit allowance.",
+    },
+    note:
+      "Subscriptions are bought at whiteintel.dev/pricing (account required); the wi_ API key from Settings then lifts this MCP server's limits via WHITEINTEL_API_KEY.",
+  },
+  api: {
+    metered: "Pay-as-you-go API from €0.20/call, tapering to €0.12 and €0.08/call at volume.",
+  },
+  how_an_agent_buys: [
+    "1. Call buy_dossier { tier, pack?, entity_id?, entity_name? } → returns a Stripe checkout_url.",
+    "2. Open the checkout_url so a human (or a payment-capable agent) completes payment — no WhiteIntel account needed; Stripe collects an email for delivery.",
+    "3. After payment Stripe redirects to whiteintel.dev with ?session_id=cs_… — call claim_dossier { session_id } to mint the access token (idempotent, safe to retry).",
+    "4. Pass the token to get_dossier { id, token } for the unlocked dossier JSON.",
+  ],
+};
+
 const TOOLS = [
   {
     name: "lookup_company",
@@ -165,15 +257,16 @@ const TOOLS = [
   {
     name: "get_dossier",
     description:
-      "Build a structured, fully-cited intelligence dossier for one entity by id: identity with cross-source linked records (the same real-world entity resolved across ICIJ leaks, GLEIF, registries), ownership/control (direct owners, holdings, and the UBO chain), risk signals, and provenance on every layer. Every claim traces to a source URL. Use this for 'tell me everything about X'. Get the id from search_entities.",
+      "Build a structured, fully-cited intelligence dossier for one entity by id: identity with cross-source linked records (the same real-world entity resolved across ICIJ leaks, GLEIF, registries), ownership/control (direct owners, holdings, and the UBO chain), risk signals, and provenance on every layer. Every claim traces to a source URL. Use this for 'tell me everything about X'. Get the id from search_entities. Free tier shows the first ownership hop + latest financials; pass a one-off purchase `token` (from claim_dossier, see get_pricing / buy_dossier) or set WHITEINTEL_API_KEY to unlock the full depth.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string", maxLength: 80, description: "Entity id (from search_entities)." },
+        token: { type: "string", maxLength: 200, description: "Optional one-off dossier access token (from claim_dossier or the delivery email). A standard token unlocks the full UBO chain + financial history for this entity; a premium token additionally unlocks itemised assets." },
       },
       required: ["id"],
     },
-    handler: (a) => apiGet(`/api/public/dossier/${encodeURIComponent(String(a.id).trim())}`),
+    handler: (a) => apiGet(`/api/public/dossier/${encodeURIComponent(String(a.id).trim())}${qs({ token: a.token })}`),
   },
   {
     name: "trace_ownership_path",
@@ -287,12 +380,77 @@ const TOOLS = [
     },
     handler: (a) => apiPost(`/api/public/resolve`, { queries: Array.isArray(a.queries) ? a.queries : [] }),
   },
+  // ── The agent-payment path: get_pricing → buy_dossier → claim_dossier → get_dossier(token) ──
+  {
+    name: "get_pricing",
+    description:
+      "WhiteIntel's price list plus the exact machine flow for buying access. One-off cited dossiers (Standard €39: full UBO chain + financial history · Premium €99: additionally itemised assets), bulk packs (5× / 25× at a discount), subscriptions (Investigator €149/seat·mo, Business €1,900/mo) and the metered API. Returns how_an_agent_buys — buy_dossier opens a Stripe Checkout, a human (or payment-capable agent) pays, claim_dossier mints the access token, and get_dossier with that token returns the unlocked report. Static data, no network call — check it before recommending a purchase.",
+    inputSchema: { type: "object", properties: {} },
+    handler: () => PRICING,
+  },
+  {
+    name: "buy_dossier",
+    description:
+      "Start a one-off dossier purchase via guest Stripe Checkout — no WhiteIntel account needed (Stripe collects an email for delivery). Pick a tier ('standard' €39: full UBO chain + financial history · 'premium' €99: additionally itemised assets — vessels, aircraft, securities, real estate) and optionally a bulk pack ('5' or '25' report credits; standard 5×€159 / 25×€599, premium 5×€399 — no premium 25-pack) plus the entity_id (from search_entities) the report is for. Returns checkout_url + next_steps: open the URL so payment can be completed, then feed the session_id from the post-payment redirect to claim_dossier for the access token. See get_pricing for the full price list.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tier: { type: "string", enum: ["standard", "premium"], description: "Dossier tier: standard (€39) or premium (€99, adds itemised assets)." },
+        pack: { type: "string", enum: ["single", "5", "25"], description: "Optional bulk pack (default single). standard: 5=€159 / 25=€599 · premium: 5=€399 (no 25-pack)." },
+        entity_id: { type: "string", maxLength: 80, description: "Optional entity id (from search_entities) the dossier should unlock." },
+        entity_name: { type: "string", maxLength: 200, description: "Optional entity display name (shown in Checkout and the delivery email)." },
+      },
+      required: ["tier"],
+    },
+    handler: async (a) => {
+      const tier = String(a.tier).trim();
+      const pack = String(a.pack ?? "single").trim();
+      if (tier === "premium" && pack === "25") {
+        throw new Error("The premium tier has no 25-pack — choose pack 'single' or '5' (see get_pricing).");
+      }
+      const body = await checkoutPost({
+        action: "create",
+        tier,
+        pack,
+        ...(a.entity_id ? { entity_id: String(a.entity_id).trim() } : {}),
+        ...(a.entity_name ? { entity_name: String(a.entity_name).trim() } : {}),
+      });
+      return {
+        checkout_url: body?.url ?? null,
+        next_steps: [
+          "Open checkout_url and complete the Stripe payment (a human can do this — no WhiteIntel account is required).",
+          "After payment Stripe redirects to whiteintel.dev with ?session_id=cs_… in the URL.",
+          "Call claim_dossier with that session_id to mint the entity-scoped access token (idempotent — safe to call again).",
+          "Pass the token to get_dossier { id, token } for the unlocked dossier JSON. The token is also emailed as a magic link and stays valid for 90 days.",
+        ],
+      };
+    },
+  },
+  {
+    name: "claim_dossier",
+    description:
+      "Redeem a paid Stripe Checkout session for a dossier access token. Pass the session_id (cs_…) from the post-payment redirect after buy_dossier. Returns { token, entity_id, tier } — pass the token to get_dossier as its `token` input for the unlocked report (standard: full UBO chain + financial history · premium: additionally itemised assets). Idempotent: claiming the same session again returns the same grant, so it is safe to retry. Fails with 402 not_paid until the payment has actually completed — wait for the human to finish Checkout, then call again.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", maxLength: 200, description: "Stripe Checkout session id (cs_…) from the success redirect." },
+      },
+      required: ["session_id"],
+    },
+    handler: async (a) => {
+      const body = await checkoutPost({ action: "claim", session_id: String(a.session_id).trim() });
+      return {
+        ...body,
+        note: "Pass this token to get_dossier { id: entity_id, token } for the unlocked dossier JSON. Keep it private — it unlocks the paid report and stays valid for 90 days.",
+      };
+    },
+  },
 ];
 
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 const server = new Server(
-  { name: "whiteintel-mcp-server", version: "0.5.1" },
+  { name: "whiteintel-mcp-server", version: "0.6.0" },
   { capabilities: { tools: {} } },
 );
 
