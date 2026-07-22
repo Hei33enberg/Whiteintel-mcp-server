@@ -36,7 +36,10 @@
     "kyc",
     "ownership-graph",
     "ai-agents",
-    "tool-use"
+    "tool-use",
+    "semantic-search",
+    "agent-payments",
+    "sanctions-screening"
   ],
   "mcp": {
     "categories": [
@@ -48,7 +51,10 @@
   "homepage": "https://whiteintel.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Hei33enberg/whiteintel-mcp-server"
+    "url": "git+https://github.com/Hei33enberg/whiteintel-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Hei33enberg/whiteintel-mcp-server/issues"
   },
   "license": "MIT",
   "author": "whiteintel.dev",
