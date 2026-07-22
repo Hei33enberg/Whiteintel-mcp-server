@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-07-22
+
+- **Semantic (meaning-based) retrieval.** Two new tools over the corpus-RAG dossier
+  cards: `semantic_search` (BGE-M3 vector ANN — find companies/people whose profile is
+  closest to a natural-language query, even with no keyword match; complements the lexical
+  `search_entities`) and `find_similar` ("more like this" around a known `entity_id`).
+  Both return `entity_id, caption, kind, jurisdiction, risk` + a similarity score. Coverage
+  grows as the embedding backfill runs — results may be sparse until then.
+
 ## 0.6.0 — 2026-07-21
 
 - **Agents can pay.** Three new tools drive a one-off dossier purchase end-to-end:

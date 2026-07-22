@@ -445,12 +445,43 @@ const TOOLS = [
       };
     },
   },
+  // ── Corpus-RAG: semantic (meaning-based) retrieval over the resolved dossier cards ──
+  {
+    name: "semantic_search",
+    description:
+      "Meaning-based entity search over the corpus (BGE-M3 vector ANN over the resolved dossier cards). Finds companies and people whose profile is semantically closest to a natural-language query — a description, a role, a risk pattern — even when no keyword matches. Complements search_entities (lexical/name). Optional kind (Company/Person/Asset) and jurisdiction (ISO code) filters. Returns entity_id, caption, kind, jurisdiction, risk and a similarity score; feed entity_id into get_dossier / trace_ownership_path. (Coverage grows as the embedding backfill runs; results may be sparse until then.)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", maxLength: 500, description: "Natural-language search, e.g. 'sanctioned Russian aluminium holding company'." },
+        k: { type: "number", minimum: 1, maximum: 50, description: "Max hits (default 10)." },
+        kind: { type: "string", description: "Optional entity-kind filter (Company / Person / Asset / …)." },
+        jurisdiction: { type: "string", description: "Optional ISO jurisdiction filter (e.g. GB, RU)." },
+      },
+      required: ["query"],
+    },
+    handler: (a) => apiGet(`/api/public/semantic-search${qs({ q: a.query, k: a.k ?? 10, kind: a.kind, juris: a.jurisdiction })}`),
+  },
+  {
+    name: "find_similar",
+    description:
+      "Entities most similar to a given one — the nearest corpus dossier cards ('more like this'), for peer discovery and clustering around a known entity. Pass an entity_id from search_entities. Returns entity_id, caption, kind, jurisdiction, risk and a similarity score. (Coverage grows as the embedding backfill runs.)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        entity_id: { type: "string", maxLength: 80, description: "Entity uuid from search_entities." },
+        k: { type: "number", minimum: 1, maximum: 50, description: "Max hits (default 10)." },
+      },
+      required: ["entity_id"],
+    },
+    handler: (a) => apiGet(`/api/public/similar/${encodeURIComponent(String(a.entity_id).trim())}${qs({ k: a.k ?? 10 })}`),
+  },
 ];
 
 const TOOL_BY_NAME = Object.fromEntries(TOOLS.map((t) => [t.name, t]));
 
 const server = new Server(
-  { name: "whiteintel-mcp-server", version: "0.6.0" },
+  { name: "whiteintel-mcp-server", version: "0.7.0" },
   { capabilities: { tools: {} } },
 );
 
