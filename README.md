@@ -8,8 +8,8 @@
 **Trace ownership. Expose the network.** A [Model Context Protocol](https://modelcontextprotocol.io)
 server that gives any AI agent (Claude Desktop, Cursor, …) **corporate & offshore
 ownership intelligence** from [WhiteIntel](https://whiteintel.dev): look up companies,
-search entities (companies **and** people), screen sanctions, and trace ownership
-chains to the ultimate beneficial owner.
+search entities (companies **and** people) **by name or meaning**, screen sanctions,
+and trace ownership chains to the ultimate beneficial owner.
 
 **Freemium** — works anonymously on the free tier, or set `WHITEINTEL_API_KEY` to
 authenticate as your plan and lift the limits (see [Configuration](#configuration)).
@@ -59,11 +59,13 @@ The `env` block is optional — omit it to use the anonymous free tier.
 | `get_financials` | Filed UK financials year-over-year (turnover, profit, net assets, cash, employees) from Companies House iXBRL accounts. |
 | `get_pulse` | The live corpus activity feed — recent ownership/control changes, newest first, each sourced; optional `since` cursor to stream only what's new. |
 | `resolve` | Batch-resolve a list of names or `scheme:value` ids → canonical entity ids + confidence, in one call (enrich a whole supplier / portfolio list). |
+| `semantic_search` | **Meaning-based** entity search (BGE-M3 vector ANN over the resolved dossier cards) — find companies & people whose profile is semantically closest to a natural-language query, even with no keyword match. Complements the lexical `search_entities`. |
+| `find_similar` | "More like this" — the corpus entities nearest a given `entity_id` in meaning, for peer discovery and clustering around a known entity. |
 | `get_pricing` | The honest price list (one-off dossiers, packs, subscriptions, metered API) + the exact machine flow for buying access. Static, no network call. |
 | `buy_dossier` | Start a one-off dossier purchase via guest Stripe Checkout (Standard €39 / Premium €99, optional 5/25 packs) → returns a `checkout_url`. |
 | `claim_dossier` | Redeem a paid Checkout session (`session_id`) for a 90-day entity-scoped access `token`. Idempotent. |
 
-All lookup tools are **read-only**; the only side-effectful tools are `buy_dossier` (opens a Stripe Checkout — money moves only when a human completes it) and `claim_dossier` (redeems an already-paid session). Ids flow between tools: `search_entities` / `search_companies` / `resolve` / `lookup_by_identifier` return ids → feed them to `get_dossier` / `trace_ownership_path` / `get_sanctions`.
+All lookup tools are **read-only**; the only side-effectful tools are `buy_dossier` (opens a Stripe Checkout — money moves only when a human completes it) and `claim_dossier` (redeems an already-paid session). Ids flow between tools: `search_entities` / `semantic_search` / `search_companies` / `resolve` / `lookup_by_identifier` return ids → feed them to `get_dossier` / `trace_ownership_path` / `find_similar` / `get_sanctions`.
 
 ## Agents can pay
 
@@ -83,6 +85,9 @@ Check **`get_pricing`** first — it returns the full price list plus this flow 
   cross-source-resolved (a sanctioned party linked to its offshore/registry records).
 - **Demo:** three worked investigations — Meridian (BVI UBO chain), Tideway
   (sanctions exposure), Ardent (VAT-carousel) — flagged `source: "demo"`.
+- **Semantic search** (`semantic_search` / `find_similar`) runs over resolved dossier
+  cards; coverage grows as the embedding backfill completes, so meaning-based hits can
+  be sparse until then — lexical `search_entities` always covers the full corpus.
 - An absent edge means "not yet observed", not "does not exist".
 - Investigative **decision-support**, not a legal determination of beneficial ownership.
 
