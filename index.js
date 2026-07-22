@@ -7,9 +7,9 @@
  * search the corpus of companies and people, and trace ownership chains to the
  * ultimate beneficial owner.
  *
- * Data: live UK Companies House (company + officer + PSC lookup) plus three
- * fully-worked demo investigations. The offshore corpus (ICIJ Offshore Leaks
- * et al.) is on the roadmap and is clearly flagged when absent.
+ * Data: ~59.6M entities fused across 27 public/semi-public registries — OpenOwnership,
+ * GLEIF, ICIJ Offshore Leaks, SEC EDGAR, sanctions/PEP lists and more — cross-source
+ * resolved onto one cited identity spine, plus live UK Companies House lookups.
  *
  * Freemium. Without a key, calls hit the anonymous free tier. Set WHITEINTEL_API_KEY
  * (a wi_… key from whiteintel.dev → Settings → API keys) to authenticate as your
@@ -227,7 +227,7 @@ const TOOLS = [
   {
     name: "search_entities",
     description:
-      "Search every node in the WhiteIntel corpus — companies AND people — by name, across live data and the seeded demo investigations (Meridian, Tideway, Ardent). Returns entity ids you then pass to get_entity or trace_ownership_path. Each hit is flagged with its source.",
+      "Search every node in the live WhiteIntel corpus — companies AND people — by name, across all fused sources. Returns entity ids you then pass to get_entity or trace_ownership_path. Each hit is flagged with its source.",
     inputSchema: {
       type: "object",
       properties: {

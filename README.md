@@ -48,7 +48,7 @@ The `env` block is optional — omit it to use the anonymous free tier.
 | --- | --- |
 | `lookup_company` | UK company by Companies House number → record + ownership graph (officers, PSCs, parent/subsidiary edges). |
 | `search_companies` | Free-text company-name search → registration number. |
-| `search_entities` | Search the corpus (companies + people), live + demo investigations → entity ids. |
+| `search_entities` | Search the corpus (companies + people) by name → entity ids. |
 | `get_entity` | Full record for one entity + its direct relationships. |
 | `get_dossier` | Structured, fully-cited dossier: cross-source identity, ownership/UBO chain, risk signals, provenance. Optional `token` (from `claim_dossier`) unlocks the paid depth. |
 | `trace_ownership_path` | Walk ownership upward from a root entity to the ultimate beneficial owner. |
@@ -80,11 +80,11 @@ Check **`get_pricing`** first — it returns the full price list plus this flow 
 
 ## Data & honesty
 
-- **Live corpus:** sanctions (OFAC SDN, EU, UN, UK), GLEIF (LEI), ICIJ Offshore
-  Leaks, SEC EDGAR, OpenOwnership (UK PSC), plus live UK Companies House lookup —
-  cross-source-resolved (a sanctioned party linked to its offshore/registry records).
-- **Demo:** three worked investigations — Meridian (BVI UBO chain), Tideway
-  (sanctions exposure), Ardent (VAT-carousel) — flagged `source: "demo"`.
+- **Live corpus:** ~59.6M entities across 27 fused registries — OpenOwnership,
+  France SIRENE, Brazil RFB, UK Companies House (bulk + live), GLEIF, ACRA Singapore,
+  ICIJ Offshore Leaks, SEC EDGAR, offshore UBO registries, and the OFAC/EU/UN/UK
+  sanctions lists — cross-source-resolved (a sanctioned party linked to its
+  offshore/registry records). Live counts: whiteintel.dev/api/public/stats.
 - **Semantic search** (`semantic_search` / `find_similar`) runs over resolved dossier
   cards; coverage grows as the embedding backfill completes, so meaning-based hits can
   be sparse until then — lexical `search_entities` always covers the full corpus.
