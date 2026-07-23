@@ -175,12 +175,12 @@ const PRICING = {
     investigator: {
       price: "€149/seat·mo",
       includes:
-        "Unlimited full-depth ownership graph, 10 Premium dossiers/mo included, risk scores + watchlists, metered API/MCP credit allowance.",
+        "Unlimited full-depth ownership graph + unlimited Premium dossiers, risk scores + watchlists, metered API/MCP credit allowance.",
     },
     business: {
       price: "€1,900/mo",
       includes:
-        "Everything in Investigator with 3 seats, 75 Premium dossiers/mo included, monitoring + webhooks, larger API/MCP credit allowance.",
+        "Everything in Investigator with 3 seats, unlimited Premium dossiers, monitoring + webhooks, larger API/MCP credit allowance.",
     },
     note:
       "Subscriptions are bought at whiteintel.dev/pricing (account required); the wi_ API key from Settings then lifts this MCP server's limits via WHITEINTEL_API_KEY.",
